@@ -11,15 +11,11 @@ from app.recommendation.profile_builder import UserProfileBuilder
 class InteractionService:
     @staticmethod
     def record_interaction(db: Session, payload: InteractionCreate) -> InteractionResponse:
+        
         # Resolve user
         user = db.query(User).filter(User.id == payload.user_id).first()
         if not user:
-            user = db.query(User).first()
-            if not user:
-                user = User(username="demo_user", email="demo@example.com")
-                db.add(user)
-                db.commit()
-                db.refresh(user)
+            raise ValueError(f"User with ID {payload.user_id} not found.")
 
         # Resolve item
         item = db.query(Item).filter(Item.id == payload.item_id).first()
