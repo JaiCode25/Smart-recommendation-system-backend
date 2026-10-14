@@ -1,2 +1,17 @@
 @import url('src/styles.css');
 .headerLogout{border:1px solid #d9e2de;background:#fff;color:#31544b;border-radius:18px;padding:8px 12px;font:600 11px 'DM Sans';cursor:pointer}
+
+/* JS3 Recommender logo */
+.brandMark {
+    width: 34px;
+    height: 34px;
+    min-width: 34px;
+    min-height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font: 700 15px Georgia;
+    letter-spacing: -1px;
+    line-height: 1;
+}
