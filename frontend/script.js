@@ -1,5 +1,111 @@
 const API = 'http://127.0.0.1:8000/api';
 
+// Relevant replacement images for recommendation cards.
+function getReplacementImage(item) {
+  const text = [
+    item.title || '',
+    item.description || '',
+    ...(item.tags || [])
+  ].join(' ').toLowerCase();
+
+  if (/cricket|batting|bowling|virat|wicket/.test(text)) {
+    return 'https://images.unsplash.com/photo-1531415074968-036ba1b575da?auto=format&fit=crop&w=900&q=80';
+  }
+
+  if (/fitness|athlete|workout|strength|nutrition|mobility/.test(text)) {
+    return 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=900&q=80';
+  }
+
+  if (/python|programming|code|software|developer|algorithm/.test(text)) {
+    return 'https://images.unsplash.com/photo-1515879218367-8466d910aaa4?auto=format&fit=crop&w=900&q=80';
+  }
+
+  if (/ai|technology|hardware|keyboard|headphone|computer/.test(text)) {
+    return 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=900&q=80';
+  }
+
+  return 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=900&q=80';
+}
+
+// Frontend-only replacements for broken recommendation URLs.
+const LINK_FIXES = {
+  // Shopping: cricket bat
+  'https://shop.cricketsports.example/products/willow-bat-pro':
+    'https://in.puma.com/in/en/pd/deviate-pro-mens-english-willow-cricket-bat/055015',
+
+  // Shopping: cricket batting protection
+  'https://shop.cricketsports.example/products/batting-protection-kit':
+    'https://www.decathlon.in/',
+
+  // Shopping: mechanical keyboard
+  'https://shop.keyboards.example/products/ergonomic-mechanical-pro':
+    'https://www.keychron.com/',
+
+  // News: Python graph algorithms
+  'https://demo.algocourse.example/python-graph-algorithms':
+    'https://networkx.org/documentation/stable/',
+
+  // News: recommender systems and collaborative filtering
+  'https://demo.academicmath.example/papers/recsys-discrete-math':
+    'https://surpriselib.com/',
+
+  // News: cricket shot biomechanics
+  'https://demo.sportsanalysis.example/articles/pull-shot-biomechanics':
+    'https://www.espncricinfo.com/',
+
+  // Shopping: noise-cancelling headphones
+  'https://shop.audio.example/products/anc-headphones-pro':
+    'https://www.sony.co.in/',
+
+  // YouTube: AI hardware
+  'https://www.youtube.com/watch?v=demo_ai_hardware':
+    'https://www.nvidia.com/en-us/',
+
+  // Shopping: fitness tracker
+  'https://shop.wearables.example/products/smart-tracker-v4':
+    'https://www.garmin.com/en-IN/',
+
+  // YouTube: athlete strength and conditioning
+  'https://www.youtube.com/watch?v=demo_athlete_strength':
+    'https://www.youtube.com/@TheReadyState',
+
+  // YouTube: graph visualization
+  'https://www.youtube.com/watch?v=demo_graph_vis':
+    'https://d3js.org/',
+
+  // YouTube: React and Vite dashboard
+  'https://www.youtube.com/watch?v=demo_react_vite_dashboard':
+    'https://vite.dev/guide/',
+
+  // Shopping: technical books
+  'https://shop.techbooks.example/products/ddia-math-bundle':
+    'https://www.oreilly.com/',
+
+  // YouTube: FastAPI and SQLAlchemy
+  'https://www.youtube.com/watch?v=demo_fastapi_prod':
+    'https://fastapi.tiangolo.com/',
+
+  // YouTube: graph neural networks and recommendations
+  'https://www.youtube.com/watch?v=demo_graph_recsys':
+    'https://networkx.org/documentation/stable/',
+
+  // YouTube: Python course
+  'https://www.youtube.com/watch?v=demo_python_course':
+    'https://docs.python.org/3/tutorial/',
+
+  // YouTube: spin bowling
+  'https://www.youtube.com/watch?v=demo_spin_secrets':
+    'https://www.icc-cricket.com/',
+
+  // News: World Cup bowling history
+  'http://127.0.0.1:5500/frontend/REAL_URL':
+    'https://www.icc-cricket.com/',
+
+  // News: Virat Kohli cover drive
+  'http://127.0.0.1:5500/frontend/REAL_URL':
+    'https://www.espncricinfo.com/'
+};
+
 const demo = [
   {
     id: 1,
@@ -29,12 +135,15 @@ const demo = [
     title: 'Pro Grip Cricket Bat',
     description:
       'Engineered for a lighter pickup and powerful stroke play.',
-    creator_or_brand: 'Willow & Co.',
+    creator_or_brand: 'PUMA',
     tags: ['cricket', 'batting', 'equipment'],
     thumbnail:
       'https://images.unsplash.com/photo-1589801258579-18e091f4ca26?auto=format&fit=crop&w=900&q=80',
+    url:
+      'https://in.puma.com/in/en/pd/deviate-pro-mens-english-willow-cricket-bat/055015',
     score: 84
   },
+
   {
     id: 4,
     source: 'instagram',
@@ -84,13 +193,7 @@ let s = {
   user: null,
   users: [],
   authMode: 'signin',
-  profile: [
-    ['cricket', 1],
-    ['sports', 0.82],
-    ['batting', 0.71],
-    ['fitness', 0.42],
-    ['india', 0.26]
-  ]
+  profile: []
 };
 
 const names = {
@@ -149,26 +252,53 @@ function platform(x) {
 function card(x, n = '') {
   let source = platform(x);
 
+    const title = x.title || 'Recommended content';
+
+  const searchQuery = encodeURIComponent(
+    [title, ...(x.tags || [])].join(' ')
+  );
+
+  const fallbackUrls = {
+    youtube: `https://www.youtube.com/results?search_query=${searchQuery}`,
+    instagram: `https://www.instagram.com/explore/search/keyword/?q=${searchQuery}`,
+    news: `https://www.google.com/search?tbm=nws&q=${searchQuery}`,
+    shopping: `https://www.google.com/search?tbm=shop&q=${searchQuery}`
+  };
+
+  const rawUrl = x.external_url || x.url;
+
+  const destination =
+    LINK_FIXES[rawUrl] ||
+    (
+      typeof rawUrl === 'string' &&
+      /^https?:\/\//i.test(rawUrl)
+        ? rawUrl
+        : fallbackUrls[source] || fallbackUrls.news
+    );
+
+
+
   return `
     <article class="card">
 
       <div class="image">
 
-        <img 
-          src="${safe(x.thumbnail || x.image_url)}" 
-          alt=""
-        >
+      <img
+        src="${safe(x.thumbnail || x.image_url || getReplacementImage(x))}"
+        alt="${safe(x.title || 'Recommended content')}"
+        loading="lazy"
+        onerror="this.onerror=null;this.src='${getReplacementImage(x)}';"
+      >
 
         <span class="platform ${source}">
           ${icons[source] || '✦'}
           ${names[source] || 'For you'}
         </span>
 
-        ${
-          n
-            ? `<span class="rank">#${n}</span>`
-            : ''
-        }
+        ${n
+      ? `<span class="rank">#${n}</span>`
+      : ''
+    }
 
       </div>
 
@@ -194,9 +324,9 @@ function card(x, n = '') {
 
         <div class="tags">
           ${(x.tags || [])
-            .slice(0, 3)
-            .map(t => `<span>#${safe(t)}</span>`)
-            .join('')}
+      .slice(0, 3)
+      .map(t => `<span>#${safe(t)}</span>`)
+      .join('')}
         </div>
 
         <div class="actions">
@@ -223,8 +353,9 @@ function card(x, n = '') {
           </button>
 
           <a
-            href="${safe(x.url || '#')}"
+            href="${safe(destination)}"            
             target="_blank"
+            rel="noopener noreferrer"
           >
             Open ↗
           </a>
@@ -246,11 +377,10 @@ function head(text) {
       <div>
 
         <p class="eyebrow">
-          ${
-            s.page === 'home'
-              ? 'GOOD MORNING, ' + first.toUpperCase()
-              : 'PERSONALIZED DISCOVERY'
-          }
+          ${s.page === 'home'
+      ? 'GOOD MORNING, ' + first.toUpperCase()
+      : 'PERSONALIZED DISCOVERY'
+    }
         </p>
 
         <h1>
@@ -351,9 +481,9 @@ function home() {
     <div class="cards">
 
       ${s.recs
-        .slice(0, 8)
-        .map((x, i) => card(x, i + 1))
-        .join('')}
+      .slice(0, 8)
+      .map((x, i) => card(x, i + 1))
+      .join('')}
 
     </div>
   `;
@@ -388,8 +518,8 @@ function explore() {
       <div class="filters">
 
         ${['all', 'youtube', 'instagram', 'shopping', 'news']
-          .map(
-            x => `
+      .map(
+        x => `
               <button
                 data-filter="${x}"
                 class="${s.filter === x ? 'selected' : ''}"
@@ -397,8 +527,8 @@ function explore() {
                 ${x === 'all' ? 'All sources' : names[x]}
               </button>
             `
-          )
-          .join('')}
+      )
+      .join('')}
 
       </div>
 
@@ -481,8 +611,8 @@ function interests() {
     <div class="interestList">
 
       ${s.profile
-        .map(
-          (x, i) => `
+      .map(
+        (x, i) => `
             <div class="interestRow">
 
               <span class="number">
@@ -509,31 +639,31 @@ function interests() {
 
             </div>
           `
-        )
-        .join('')}
+      )
+      .join('')}
 
     </div>
   `;
 }
 
 function graph() {
-  let nodes = [
-    ['cricket', 50, 51, 1],
-    ['sports', 50, 16],
-    ['batting', 20, 77],
-    ['fitness', 82, 69],
-    ['india', 78, 23],
-    ['technology', 18, 25]
-  ];
+  let nodes = s.profile.map((item, index) => {
+    const angle = (2 * Math.PI * index) / Math.max(s.profile.length, 1);
 
-  let edges = [
-    [50, 51, 50, 16],
-    [50, 51, 20, 77],
-    [50, 51, 82, 69],
-    [50, 51, 78, 23],
-    [50, 16, 78, 23],
-    [18, 25, 50, 16]
-  ];
+    return [
+      item[0],
+      50 + 35 * Math.cos(angle),
+      50 + 35 * Math.sin(angle),
+      index === 0 ? 1 : 0
+    ];
+  });
+
+  let edges = nodes.slice(1).map((node, index) => [
+    nodes[0][1],
+    nodes[0][2],
+    node[1],
+    node[2]
+  ]);
 
   return `
     ${head('The map behind your feed.')}
@@ -561,8 +691,8 @@ function graph() {
         >
 
           ${edges
-            .map(
-              (x, i) => `
+      .map(
+        (x, i) => `
                 <line
                   x1="${x[0]}"
                   y1="${x[1]}"
@@ -572,14 +702,14 @@ function graph() {
                   stroke-width="${i < 3 ? '1.15' : '.55'}"
                 />
               `
-            )
-            .join('')}
+      )
+      .join('')}
 
         </svg>
 
         ${nodes
-          .map(
-            x => `
+      .map(
+        x => `
               <div
                 class="node ${x[3] ? 'focus' : ''}"
                 style="left:${x[1]}%;top:${x[2]}%"
@@ -589,8 +719,8 @@ function graph() {
                 </span>
               </div>
             `
-          )
-          .join('')}
+      )
+      .join('')}
 
       </div>
 
@@ -600,15 +730,15 @@ function graph() {
           GRAPH INSIGHT
         </p>
 
-        <h3>
-          Cricket is your<br>
-          <em>strongest hub.</em>
-        </h3>
+      <h3>
+         Your interest<br>
+         <em>network.</em>
+      </h3>
 
-        <p>
-          It connects your direct interest in batting
-          with inferred interests like fitness and India.
-        </p>
+      <p>
+       Explore the interests associated with your
+       recommendation profile.
+      </p>
 
         <div class="stat">
           <b>${s.profile.length}</b>
@@ -616,8 +746,8 @@ function graph() {
         </div>
 
         <div class="stat">
-          <b>12</b>
-          <span>weighted connections</span>
+          <b>${edges.length}</b>
+          <span>displayed connections</span>
         </div>
 
       </div>
@@ -637,11 +767,11 @@ function loginScreen() {
         <div class="brand">
 
           <span class="brandMark">
-            N
+            JS
           </span>
 
           <span>
-            NEXUS
+            JS3 RECOMMENDER
           </span>
 
         </div>
@@ -688,19 +818,17 @@ function loginScreen() {
           </p>
 
           <h2>
-            ${
-              isRegister
-                ? 'Start your <em>discovery.</em>'
-                : 'Let’s make your feed<br><em>personal.</em>'
-            }
+            ${isRegister
+      ? 'Start your <em>discovery.</em>'
+      : 'Let’s make your feed<br><em>personal.</em>'
+    }
           </h2>
 
           <p class="loginHint">
-            ${
-              isRegister
-                ? 'Create an account to save your interests and receive personal recommendations.'
-                : 'Sign in to continue with your saved recommendation profile.'
-            }
+            ${isRegister
+      ? 'Create an account to save your interests and receive personal recommendations.'
+      : 'Sign in to continue with your saved recommendation profile.'
+    }
           </p>
 
           <label for="username">
@@ -715,9 +843,8 @@ function loginScreen() {
             placeholder="e.g. alex_kumar"
           >
 
-          ${
-            isRegister
-              ? `
+          ${isRegister
+      ? `
                 <label for="email">
                   Email address
                 </label>
@@ -730,8 +857,8 @@ function loginScreen() {
                   placeholder="you@example.com"
                 >
               `
-              : ''
-          }
+      : ''
+    }
 
           <label for="password">
             Password
@@ -760,11 +887,10 @@ function loginScreen() {
           ></p>
 
           <p class="loginStatus ${s.online ? 'live' : ''}">
-            ● ${
-              s.online
-                ? 'Backend connected'
-                : 'Backend not reachable — start the API first'
-            }
+            ● ${s.online
+      ? 'Backend connected'
+      : 'Backend not reachable — start the API first'
+    }
           </p>
 
           <button
@@ -772,11 +898,10 @@ function loginScreen() {
             type="button"
             data-auth-mode="${isRegister ? 'signin' : 'register'}"
           >
-            ${
-              isRegister
-                ? 'Already have an account? Sign in'
-                : 'New here? Create an account'
-            }
+            ${isRegister
+      ? 'Already have an account? Sign in'
+      : 'New here? Create an account'
+    }
           </button>
 
         </form>
@@ -850,7 +975,7 @@ async function submitAuth(event) {
     s.loggedIn = true;
 
     localStorage.setItem(
-      'nexusUser',
+      'JS3 RECOMMENDERUser',
       JSON.stringify(data)
     );
 
@@ -867,7 +992,7 @@ async function submitAuth(event) {
 }
 
 function logout() {
-  localStorage.removeItem('nexusUser');
+  localStorage.removeItem('JS3 RECOMMENDERUser');
 
   s.loggedIn = false;
   s.user = null;
@@ -1168,7 +1293,7 @@ function openProfile() {
       </div>
 
       <p class="eyebrow">
-        YOUR NEXUS PROFILE
+        YOUR JS3 RECOMMENDER PROFILE
       </p>
 
       <h2>
@@ -1177,9 +1302,9 @@ function openProfile() {
 
       <p class="profileEmail">
         ${safe(
-          s.user.email ||
-          'Personalized discovery account'
-        )}
+    s.user.email ||
+    'Personalized discovery account'
+  )}
       </p>
 
       <div class="profileStats">
@@ -1256,7 +1381,7 @@ function openProfile() {
   ).onclick = () => {
 
     localStorage.removeItem(
-      'nexusUser'
+      'JS3 RECOMMENDERUser'
     );
 
     s.loggedIn = false;
@@ -1315,11 +1440,11 @@ function render() {
         <div class="brand">
 
           <span class="brandMark">
-            N
+            JS
           </span>
 
           <span>
-            NEXUS
+            JS3 RECOMMENDER
           </span>
 
         </div>
@@ -1331,8 +1456,8 @@ function render() {
         <nav>
 
           ${nav
-            .map(
-              x => `
+      .map(
+        x => `
                 <button
                   data-page="${x[0]}"
                   class="${s.page === x[0] ? 'active' : ''}"
@@ -1341,8 +1466,8 @@ function render() {
                   ${x[2]}
                 </button>
               `
-            )
-            .join('')}
+      )
+      .join('')}
 
         </nav>
 
@@ -1378,14 +1503,13 @@ function render() {
 
       <main>
 
-        ${
-          {
-            home,
-            explore,
-            interests,
-            graph
-          }[s.page]()
-        }
+        ${{
+      home,
+      explore,
+      interests,
+      graph
+    }[s.page]()
+    }
 
       </main>
 
@@ -1564,7 +1688,7 @@ async function boot() {
 
   let saved =
     localStorage.getItem(
-      'nexusUser'
+      'JS3 RECOMMENDERUser'
     );
 
 
@@ -1586,7 +1710,7 @@ async function boot() {
     catch {
 
       localStorage.removeItem(
-        'nexusUser'
+        'JS3 RECOMMENDERUser'
       );
 
     }
