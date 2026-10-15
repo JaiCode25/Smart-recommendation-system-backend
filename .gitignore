@@ -1,3 +1,22 @@
-
+# Existing entries
 .DS_Store
 smart_recommendation_backup.db
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# Node.js
+node_modules/
+
+# Temporary files
+main-script.js
+js3-script.js
+how --stat bdbd343
+
+# Environment variables
+.env
+.env.*
+!.env.example
